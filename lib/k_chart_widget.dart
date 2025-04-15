@@ -24,6 +24,40 @@ class TimeFormat {
   ];
 }
 
+  class ChartPaintState {
+    double scaleX;
+    double scrollX;
+    double selectX;
+    double selectY;
+
+    ChartPaintState(
+      this.scaleX,
+      this.scrollX,
+      this.selectX,
+      this.selectY,
+    );
+  }
+
+  class ChartPaintInitState {
+    double scaleX;
+    double scrollX;
+
+    ChartPaintInitState(
+      this.scaleX,
+      this.scrollX,
+    );
+
+    ChartPaintInitState copyWith({
+      double? scaleX,
+      double? scrollX,
+    }) {
+      return ChartPaintInitState(
+        scaleX ?? this.scaleX,
+        scrollX ?? this.scrollX,
+      );
+    }
+  }
+
 class KChartWidget extends StatefulWidget {
   final List<KLineEntity>? datas;
   final MainState mainState;
@@ -42,7 +76,8 @@ class KChartWidget extends StatefulWidget {
   final List<String> timeFormat;
 
   //当屏幕滚动到尽头会调用，真为拉到屏幕右侧尽头，假为拉到屏幕左侧尽头
-  final Function(bool)? onLoadMore;
+  final Function(bool, ChartPaintState)? onLoadMore;
+  final Function(ChartPaintState)? onScroll;
 
   final int fixedLength;
   final List<int> maDayList;
@@ -55,6 +90,8 @@ class KChartWidget extends StatefulWidget {
   final VerticalTextAlignment verticalTextAlignment;
   final bool isTrendLine;
   final double xFrontPadding;
+  final double scrollPosition;
+  final double scaleLevel;
 
   KChartWidget(
     this.datas,
@@ -76,6 +113,7 @@ class KChartWidget extends StatefulWidget {
     this.translations = kChartTranslations,
     this.timeFormat = TimeFormat.YEAR_MONTH_DAY,
     this.onLoadMore,
+    this.onScroll,
     this.fixedLength = 2,
     this.maDayList = const [5, 10, 20],
     this.flingTime = 600,
@@ -83,6 +121,8 @@ class KChartWidget extends StatefulWidget {
     this.flingCurve = Curves.decelerate,
     this.isOnDrag,
     this.verticalTextAlignment = VerticalTextAlignment.left,
+    this.scaleLevel = 1.0,
+    this.scrollPosition = 0.0,
   });
 
   @override
@@ -116,6 +156,8 @@ class _KChartWidgetState extends State<KChartWidget>
   void initState() {
     super.initState();
     mInfoWindowStream = StreamController<InfoWindowEntity?>();
+    mScaleX = widget.scaleLevel;
+    mScrollX = widget.scrollPosition;
   }
 
   @override
@@ -130,11 +172,16 @@ class _KChartWidgetState extends State<KChartWidget>
     super.dispose();
   }
 
+  ChartPaintState getChartPaintState() {
+    return ChartPaintState(mScaleX, mScrollX, mSelectX, mSelectY);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.datas != null && widget.datas!.isEmpty) {
-      mScrollX = mSelectX = 0.0;
-      mScaleX = 1.0;
+      mScrollX = widget.scrollPosition;
+      mSelectX = 0.0;
+      mScaleX = widget.scaleLevel;
     }
     final _painter = ChartPainter(
       widget.chartStyle,
@@ -317,16 +364,19 @@ class _KChartWidgetState extends State<KChartWidget>
             parent: _controller!.view, curve: widget.flingCurve));
     aniX!.addListener(() {
       mScrollX = aniX!.value;
+      if (widget.onScroll != null) {
+        widget.onScroll!(getChartPaintState());
+      }
       if (mScrollX <= 0) {
         mScrollX = 0;
         if (widget.onLoadMore != null) {
-          widget.onLoadMore!(true);
+          widget.onLoadMore!(true, getChartPaintState());
         }
         _stopAnimation();
       } else if (mScrollX >= ChartPainter.maxScrollX) {
         mScrollX = ChartPainter.maxScrollX;
         if (widget.onLoadMore != null) {
-          widget.onLoadMore!(false);
+          widget.onLoadMore!(false, getChartPaintState());
         }
         _stopAnimation();
       }
