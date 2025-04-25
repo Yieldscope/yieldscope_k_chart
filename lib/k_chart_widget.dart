@@ -405,8 +405,26 @@ class _KChartWidgetState extends State<KChartWidget>
               !snapshot.hasData ||
               snapshot.data?.kLineEntity == null) return Container();
           KLineEntity entity = snapshot.data!.kLineEntity;
-          double upDown = entity.change ?? entity.close - entity.open;
-          double upDownPercent = entity.ratio ?? (upDown / entity.open) * 100;
+          
+          // Get the previous entity if available
+          KLineEntity? prevEntity;
+          if (widget.datas != null && widget.datas!.isNotEmpty) {
+            int index = widget.datas!.indexOf(entity);
+            if (index > 0) {
+              prevEntity = widget.datas![index - 1];
+            }
+          }
+          
+          // Calculate change relative to previous close price if available
+          double upDown = entity.change ?? (prevEntity != null 
+              ? entity.close - prevEntity.close 
+              : entity.close - entity.open);
+          
+          // Calculate percentage change
+          double upDownPercent = entity.ratio ?? (prevEntity != null 
+              ? (upDown / prevEntity.close) * 100 
+              : (upDown / entity.open) * 100);
+              
           final double? entityAmount = entity.amount;
           infos = [
             getDate(entity.time),
